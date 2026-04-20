@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartWardrobe Pro - 智能衣柜控制系统</title>
+    
+    <!-- 加载所需的 CDN 库 -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+    <script src="https://unpkg.com/framer-motion/dist/framer-motion.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        body {
+            background-color: #0A0A0B;
+            color: #E5E5E5;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        .hardware-card {
+            background: #151619;
+            border: 1px solid #2A2B2F;
+            border-radius: 0.75rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .status-glow { box-shadow: 0 0 15px rgba(34, 197, 94, 0.4); }
+        .uv-glow { box-shadow: 0 0 20px rgba(168, 85, 247, 0.5); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+        const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } = Recharts;
+        const { motion } = FramerMotion;
+
+        const LANGUAGES = {
+            zh: {
+                title: '智能衣柜控制系统',
+                login: '登录', username: '用户名', password: '密码',
+                loginError: '用户名或密码错误',
+                status: '运行状态', idle: '空闲', disinfecting: '消毒中...',
+                cleaning: '清洁中 (消毒液)...', sterilizing: '杀菌中 (紫外线)...',
+                startProcess: '开始消毒', stopProcess: '停止消毒',
+                itemCount: '衣物数量', temp: '当前温度', humidity: '当前湿度',
+                bestRange: '最佳储存环境 (20-25°C, 40-50%)',
+                autoAdjusting: '自动调节中...', recentTrends: '温湿度趋势',
+            },
+            en: {
+                title: 'Smart Wardrobe Control',
+                login: 'Login', username: 'Username', password: 'Password',
+                loginError: 'Invalid username or password',
+                status: 'Status', idle: 'Idle', disinfecting: 'Disinfecting...',
+                cleaning: 'Cleaning (Disinfectant)...', sterilizing: 'Sterilizing (UV)...',
+                startProcess: 'Start Cycle', stopProcess: 'Stop Cycle',
+                itemCount: 'Item Count', temp: 'Temperature', humidity: 'Humidity',
+                bestRange: 'Optimal range (20-25°C, 40-50%)',
+                autoAdjusting: 'Auto adjusting...', recentTrends: 'Climate Trends',
+            }
+        };
+
+        // 图标组件封装
+        const Icon = ({ name, className = "w-6 h-6" }) => {
+            useEffect(() => { window.lucide.createIcons(); });
+            return <i data-lucide={name.toLowerCase().replace(/([A-Z])/g, '-$1').toLowerCase()} className={className}></i>;
+        };
+
+        function App() {
+            const [isLoggedIn, setIsLoggedIn] = useState(false);
+            const [lang, setLang] = useState('zh');
+            const [temp, setTemp] = useState(22.5);
+            const [humidity, setHumidity] = useState(45);
+            const [isDisinfecting, setIsDisinfecting] = useState(false);
+            const [processStep, setProcessStep] = useState('none');
+            const [itemCount, setItemCount] = useState(4);
+            const [climateHistory, setClimateHistory] = useState([]);
+
+            const t = LANGUAGES[lang];
+
+            // 模拟环境变化
+            useEffect(() => {
+                const interval = setInterval(() => {
+                    setTemp(prev => Number((prev + (Math.random() - 0.5) * 0.2).toFixed(1)));
+                    setHumidity(prev => Number((prev + (Math.random() - 0.5) * 0.5).toFixed(1)));
+                    setClimateHistory(prev => [...prev, { time: new Date().toLocaleTimeString(), temp, humidity }].slice(-20));
+                }, 3000);
+                return () => clearInterval(interval);
+            }, [temp, humidity]);
+
+            const handleStart = () => {
+                setIsDisinfecting(true);
+                setProcessStep('cleaning');
+                setTimeout(() => setProcessStep('sterilizing'), 5000);
+                setTimeout(() => { setIsDisinfecting(false); setProcessStep('none'); }, 10000);
+            };
+
+            if (!isLoggedIn) return (
+                <div className="min-h-screen flex items-center justify-center bg-[#0A0A0B] p-4">
+                    <div className="hardware-card p-8 w-full max-w-md text-center">
+                        <h2 className="text-2xl font-bold mb-6 text-white">{t.title}</h2>
+                        <form onSubmit={e => { e.preventDefault(); if(e.target[0].value==='student1' && e.target[1].value==='123456') setIsLoggedIn(true); else alert(t.loginError); }} className="space-y-4">
+                            <input type="text" placeholder="student1" className="w-full bg-black/50 border border-neutral-800 p-3 rounded-xl text-white outline-none focus:border-indigo-500" />
+                            <input type="password" placeholder="123456" className="w-full bg-black/50 border border-neutral-800 p-3 rounded-xl text-white outline-none focus:border-indigo-500" />
+                            <button type="submit" className="w-full py-3 bg-indigo-600 rounded-xl text-white font-bold">{t.login}</button>
+                        </form>
+                        <button onClick={() => setLang(lang==='zh'?'en':'zh')} className="mt-4 text-xs text-neutral-500 underline">{lang==='zh'?'Switch to English':'切换到中文'}</button>
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen p-8 max-w-6xl mx-auto flex flex-col gap-8">
+                    <header className="flex justify-between items-center">
+                        <div>
+                            <h1 className="text-3xl font-bold text-white">{t.title}</h1>
+                            <p className="text-neutral-500">{isDisinfecting ? t.disinfecting : t.idle}</p>
+                        </div>
+                        <button onClick={()=>setIsLoggedIn(false)} className="text-neutral-500 hover:text-red-400"><Icon name="LogOut"/></button>
+                    </header>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="hardware-card p-6">
+                            <Icon name="Thermometer" className="text-orange-400 mb-2"/>
+                            <div className="text-sm text-neutral-500 uppercase">{t.temp}</div>
+                            <div className="text-4xl font-mono text-white">{temp}°C</div>
+                        </div>
+                        <div className="hardware-card p-6">
+                            <Icon name="Droplets" className="text-blue-400 mb-2"/>
+                            <div className="text-sm text-neutral-500 uppercase">{t.humidity}</div>
+                            <div className="text-4xl font-mono text-white">{humidity}%</div>
+                        </div>
+                        <div className="hardware-card p-6 flex flex-col justify-between">
+                            <div className="flex justify-between items-center">
+                                <span className="text-white font-bold">{t.itemCount}</span>
+                                <div className="flex gap-4">
+                                    <button onClick={()=>setItemCount(Math.max(1, itemCount-1))} className="text-white">-</button>
+                                    <span className="text-white">{itemCount}</span>
+                                    <button onClick={()=>setItemCount(Math.min(8, itemCount+1))} className="text-white">+</button>
+                                </div>
+                            </div>
+                            <button onClick={handleStart} disabled={isDisinfecting} className={`mt-4 py-3 rounded-xl font-bold ${isDisinfecting?'bg-neutral-800 text-neutral-500':'bg-indigo-600 text-white'}`}>
+                                {isDisinfecting ? t.disinfecting : t.startProcess}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="hardware-card p-6">
+                            <h3 className="text-white mb-4">{t.recentTrends}</h3>
+                            <div className="h-48">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={climateHistory}>
+                                        <XAxis dataKey="time" hide />
+                                        <YAxis hide />
+                                        <Area type="monotone" dataKey="temp" stroke="#f97316" fill="#f97316" fillOpacity={0.1} />
+                                        <Area type="monotone" dataKey="humidity" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.1} />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                        <div className="hardware-card p-6 relative overflow-hidden flex flex-col gap-4">
+                            <div className={`flex-1 border border-dashed rounded-xl flex items-center justify-center ${processStep==='sterilizing'?'bg-purple-500/10 border-purple-500':'border-neutral-800'}`}>
+                                <Icon name="Shield" className={processStep==='sterilizing'?'text-purple-500 animate-pulse':'text-neutral-800'} />
+                                <span className="ml-2 text-xs text-neutral-500">Sterilization Layer</span>
+                            </div>
+                            <div className={`flex-1 border border-dashed rounded-xl flex items-center justify-center ${processStep==='cleaning'?'bg-emerald-500/10 border-emerald-500':'border-neutral-800'}`}>
+                                <Icon name="Droplets" className={processStep==='cleaning'?'text-emerald-500 animate-pulse':'text-neutral-800'} />
+                                <span className="ml-2 text-xs text-neutral-500">Cleaning Layer</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
